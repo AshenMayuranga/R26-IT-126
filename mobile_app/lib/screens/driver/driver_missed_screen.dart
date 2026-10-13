@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/pickup_request.dart';
@@ -106,19 +107,31 @@ class _MissedCardState extends State<_MissedCard> {
   Future<void> _reactivate() async {
     setState(() => _busy = true);
     try {
-      await widget.fs.updateRequestStatus(
-          widget.request.id, RequestStatus.active);
+      await widget.fs.rescheduleMissedRequest(widget.request.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           appSnackBar(
-            'Request reactivated — resident will be notified when truck arrives.',
+            'Request rescheduled — it is back on the pickup route for the '
+            'next ${FirestoreService.rescheduleWindow.inHours} hours.',
             kind: SnackKind.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        showErrorDialog(context, friendlyError(e));
+        // The server checks the new pickup window against its own clock, so
+        // a refusal here most likely means this phone's clock is wrong.
+        final refused = e is FirebaseException && e.code == 'permission-denied';
+        showErrorDialog(
+          context,
+          refused
+              ? 'The request was not rescheduled. Check that your phone\'s '
+                  'date and time are set correctly, then try again.'
+              : friendlyError(
+                  e,
+                  fallback: 'Could not reschedule the request. Please try again.',
+                ),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);

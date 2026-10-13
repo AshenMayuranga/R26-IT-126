@@ -380,6 +380,12 @@ class _DriverPickupRouteScreenState extends State<DriverPickupRouteScreen> {
           _fs.autoResolveStaleRequests(allRequests); // fire-and-forget self-heal
           _activeRequests =
               allRequests.where((r) => r.status == RequestStatus.active).toList();
+          // An arrival is only remembered while its request is still on the
+          // way out of the active list — otherwise a request this trip
+          // already arrived at could never be arrived at again after being
+          // missed and rescheduled.
+          _arrivedIds
+              .removeWhere((id) => !_activeRequests.any((r) => r.id == id));
 
           // Markers/route-eligible requests are already reactive (rebuilt
           // from _activeRequests every time this stream fires), but the
