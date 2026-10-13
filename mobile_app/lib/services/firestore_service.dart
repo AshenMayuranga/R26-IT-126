@@ -142,6 +142,22 @@ class FirestoreService {
     }
   }
 
+  // How long a rescheduled request stays open for a driver to come back —
+  // the longest window a resident can pick when placing one.
+  static const rescheduleWindow = Duration(hours: 3);
+
+  // A driver puts a missed request back on the pickup route. It gets a
+  // fresh window from now: its original one has usually ended by the time
+  // it is rescheduled, and an `active` request past its window is expired
+  // straight away by autoResolveStaleRequests. firestore.rules requires the
+  // new window and checks it against the server's clock.
+  Future<void> rescheduleMissedRequest(String id) {
+    return _db.collection('pickupRequests').doc(id).update({
+      'status': RequestStatus.active.name,
+      'expiresAt': Timestamp.fromDate(DateTime.now().add(rescheduleWindow)),
+    });
+  }
+
   // A driver ends a missed request for good, with the reason the resident
   // is then shown and notified with — for when rescheduling would be
   // pointless (they went, and there was nothing to collect). Final: neither

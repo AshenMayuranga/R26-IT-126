@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import '../../models/pickup_request.dart';
@@ -12,11 +13,12 @@ class MissedNavigationScreen extends StatelessWidget {
 
   Future<bool> _reactivate(BuildContext context) async {
     try {
-      await FirestoreService().updateRequestStatus(request.id, RequestStatus.active);
+      await FirestoreService().rescheduleMissedRequest(request.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           appSnackBar(
-            'Request reactivated — resident will be notified when truck arrives.',
+            'Request rescheduled — it is back on the pickup route for the '
+            'next ${FirestoreService.rescheduleWindow.inHours} hours.',
             kind: SnackKind.success,
           ),
         );
@@ -24,7 +26,18 @@ class MissedNavigationScreen extends StatelessWidget {
       return true;
     } catch (e) {
       if (context.mounted) {
-        showErrorDialog(context, friendlyError(e));
+        // Same server-clock check as on the Missed Requests list.
+        final refused = e is FirebaseException && e.code == 'permission-denied';
+        showErrorDialog(
+          context,
+          refused
+              ? 'The request was not rescheduled. Check that your phone\'s '
+                  'date and time are set correctly, then try again.'
+              : friendlyError(
+                  e,
+                  fallback: 'Could not reschedule the request. Please try again.',
+                ),
+        );
       }
       return false;
     }
